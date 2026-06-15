@@ -1,0 +1,17 @@
+torch
+torchaudio
+torchvision
+librosa
+soundfile
+numpy==1.23.5
+scipy
+speechbrain
+streamlit
+plotly
+fastapi
+uvicorn
+websockets
+python-multipart
+sounddevice
+pyaudio
+transformers

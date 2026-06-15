@@ -1,0 +1,23 @@
+# Python temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Large datasets and media files
+data/
+pretrained_models/
+
+# Model weights (only share code on git; models are compiled locally)
+models/layer1_mobilenet.pth
+models/voiceprints.pth
+*.pth
+*.npy
+*.wav
+*.mp3
+*.flac
