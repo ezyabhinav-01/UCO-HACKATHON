@@ -70,29 +70,48 @@ def train():
     
     # Load dataset
     data_path = "data/processed"
+    train_spec_file = os.path.join(data_path, "train_specs.npy")
+    train_label_file = os.path.join(data_path, "train_labels.npy")
+    test_spec_file = os.path.join(data_path, "test_specs.npy")
+    test_label_file = os.path.join(data_path, "test_labels.npy")
+    
     spec_file = os.path.join(data_path, "spectrograms.npy")
     label_file = os.path.join(data_path, "labels.npy")
     
-    if not os.path.exists(spec_file) or not os.path.exists(label_file):
-        print(f"ERROR: Dataset files not found at {data_path}. Run build_dataset.py first!")
+    if os.path.exists(train_spec_file) and os.path.exists(train_label_file) and os.path.exists(test_spec_file) and os.path.exists(test_label_file):
+        print("Found speaker-aware pre-split dataset files. Loading them directly...")
+        train_specs = np.load(train_spec_file)
+        train_labels = np.load(train_label_file)
+        test_specs = np.load(test_spec_file)
+        test_labels = np.load(test_label_file)
+        
+        print(f"Loaded speaker-aware split:")
+        print(f"  Train samples: {len(train_labels)} (Real: {np.sum(train_labels == 0)}, Fake: {np.sum(train_labels == 1)})")
+        print(f"  Test samples:  {len(test_labels)} (Real: {np.sum(test_labels == 0)}, Fake: {np.sum(test_labels == 1)})")
+        
+        train_dataset = AudioDataset(train_specs, train_labels)
+        test_dataset = AudioDataset(test_specs, test_labels)
+    elif os.path.exists(spec_file) and os.path.exists(label_file):
+        print("Found unified dataset files. Loading and splitting randomly (80% train, 20% test)...")
+        spectrograms = np.load(spec_file)
+        labels = np.load(label_file)
+        
+        print(f"Loaded {len(labels)} samples.")
+        print(f"Real (0): {np.sum(labels == 0)}, Fake (1): {np.sum(labels == 1)}")
+        
+        # Shuffle indices and split (80% train, 20% test)
+        indices = np.random.permutation(len(labels))
+        split = int(0.8 * len(labels))
+        
+        train_idx = indices[:split]
+        test_idx = indices[split:]
+        
+        train_dataset = AudioDataset(spectrograms[train_idx], labels[train_idx])
+        test_dataset = AudioDataset(spectrograms[test_idx], labels[test_idx])
+    else:
+        print(f"ERROR: Dataset files not found at {data_path}. Run build_dataset.py or process_phase1.py first!")
         return
         
-    spectrograms = np.load(spec_file)
-    labels = np.load(label_file)
-    
-    print(f"Loaded {len(labels)} samples.")
-    print(f"Real (0): {np.sum(labels == 0)}, Fake (1): {np.sum(labels == 1)}")
-    
-    # Shuffle indices and split (80% train, 20% test)
-    indices = np.random.permutation(len(labels))
-    split = int(0.8 * len(labels))
-    
-    train_idx = indices[:split]
-    test_idx = indices[split:]
-    
-    train_dataset = AudioDataset(spectrograms[train_idx], labels[train_idx])
-    test_dataset = AudioDataset(spectrograms[test_idx], labels[test_idx])
-    
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
     
