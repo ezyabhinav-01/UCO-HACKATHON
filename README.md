@@ -1,15 +1,19 @@
-<<<<<<< HEAD
-# PhaseGuard — Layer 2: Speaker Verification
-
-Production backend for PhaseGuard's **Layer 2** identity-verification engine, built for the UCO Hackathon 2026.
-
-Layer 2 verifies that a live caller is the enrolled customer by comparing a
-192-dimensional ECAPA-TDNN speaker embedding extracted from the live audio
-against the stored voiceprint via cosine similarity.
+# 🛡️ PhaseGuard
+**Real-Time Two-Layer Voice Forensics for Banking Security & Deepfake Interception**  
+*UCO Bank Hackathon 2026 — Built by Team Ozymandias*
 
 ---
 
-## Architecture
+## 📌 Project Overview
+PhaseGuard is an advanced, real-time voice verification system designed to protect banking transactions against AI voice cloning fraud. If a criminal uses a cloned voice (e.g., generated via ElevenLabs) to call a bank, PhaseGuard intercepts and blocks the call in real-time before any funds are moved.
+
+It operates using two sequential layers:
+*   **Layer 1 (AI Voice Authenticity):** Detects neural vocoder phase artifacts and boundary jumps using physical signal checks and a fine-tuned MobileNetV3 CNN.
+*   **Layer 2 (Speaker Verification):** Verifies that the speaker's vocal signature matches the enrolled customer using ECAPA-TDNN embeddings compared against stored customer voiceprints in PostgreSQL (via pgvector).
+
+---
+
+## 🏗️ Architecture
 
 ```
 POST /api/v1/enroll
@@ -22,13 +26,13 @@ POST /api/v1/verify
     → ECAPA-TDNN embedding
     → fetch enrolled voiceprint from PostgreSQL
     → cosine similarity
-    → identity decision  (threshold: 0.65)
-    → Risk Engine        (combines Layer 1 + Layer 2 scores)
+    → identity decision (threshold: 0.65)
+    → Risk Engine (combines Layer 1 + Layer 2 scores)
     → persist verification_log + risk_log
     → return VerificationResult
 ```
 
-### Risk Engine rules
+### Risk Engine Rules
 
 | Condition | Decision |
 |---|---|
@@ -38,299 +42,166 @@ POST /api/v1/verify
 
 ---
 
-## Project Structure
-
-```
-phaseguard/
-├── app/
-│   ├── api/v1/
-│   │   ├── endpoints/
-│   │   │   ├── enroll.py          POST /api/v1/enroll
-│   │   │   ├── verify.py          POST /api/v1/verify
-│   │   │   ├── users.py           POST/GET /api/v1/users
-│   │   │   └── history.py         GET /api/v1/verification-history, /risk-history
-│   │   └── router.py
-│   ├── core/
-│   │   ├── config.py              pydantic-settings (reads .env)
-│   │   └── logging.py             loguru sinks (console + rotating file)
-│   ├── database/
-│   │   ├── base.py                SQLAlchemy DeclarativeBase
-│   │   └── session.py             async engine + get_db() dependency
-│   ├── models/
-│   │   ├── user.py                users table
-│   │   ├── voiceprint.py          voiceprints table (VECTOR(192))
-│   │   ├── verification_log.py    verification_logs table
-│   │   └── risk_log.py            risk_logs table
-│   ├── schemas/                   Pydantic request/response schemas
-│   ├── repositories/              DB access layer (no raw SQL in services)
-│   ├── services/
-│   │   ├── enrollment_service.py  Enrollment orchestration
-│   │   ├── verification_service.py Verification + logging
-│   │   └── risk_engine.py         Risk scoring rules
-│   ├── ml/
-│   │   └── ecapa_service.py       SpeechBrain ECAPA-TDNN wrapper + singleton
-│   ├── utils/
-│   │   ├── audio_utils.py         Audio I/O, temp file management
-│   │   └── exceptions.py          Domain exception hierarchy
-│   └── main.py                    FastAPI app + lifespan + exception handlers
-├── streamlit_app/
-│   ├── app.py                     Home page + health check
-│   ├── api_client.py              HTTP client wrapping backend calls
-│   ├── config.py                  Frontend settings (API URL, thresholds)
-│   └── pages/
-│       ├── 1_Enrollment.py        Enroll a user's voiceprint
-│       ├── 2_Verification.py      Verify live audio + display risk result
-│       ├── 3_History.py           Verification + risk history tables/charts
-│       └── 4_Risk_Dashboard.py    Risk gauge, trend charts, distribution pie
-├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-│       └── 0001_initial_schema.py  CREATE TABLE users/voiceprints/…
-├── tests/
-│   ├── conftest.py
-│   ├── test_risk_engine.py          9 unit tests — all rules
-│   ├── test_ecapa_service.py        9 unit tests — cosine similarity + averaging
-│   ├── test_audio_utils.py         12 unit tests — I/O, extension validation
-│   ├── test_enrollment_service.py   4 unit tests — service orchestration
-│   └── test_verification_service.py 6 unit tests — service orchestration
-├── Dockerfile                       FastAPI backend image
-├── Dockerfile.streamlit             Streamlit frontend image
-├── docker-compose.yml               db + api + streamlit
-├── alembic.ini
-├── requirements.txt
-├── pytest.ini
-└── .env.example
-=======
-# 🛡️ PhaseGuard
-
-**Real-Time Two-Layer Voice Forensics for Banking Security & Deepfake Interception**  
-*UCO Bank Hackathon 2026 — Built by Team Ozymandias*
-
----
-
-## 📌 Project Overview
-PhaseGuard is an advanced, real-time voice verification system designed to protect banking transactions against AI voice cloning fraud. If a criminal uses a cloned voice (e.g. generated via ElevenLabs in under 30 seconds using a 3-second sample) to call a bank, PhaseGuard intercepts and blocks the call in real-time before any funds are moved.
-
-### Why AI Voices Fail: The Frame Boundary Phenomenon
-* **Real Human Voice**: Produced by lungs pushing air through vocal cords, shaped smoothly by the mouth and lips. This is a continuous physical process. Measuring the **phase** (position of the sound wave over time) reveals smooth, continuous, organic transitions.
-* **AI Voice (Deepfake)**: Synthesized frame-by-frame (typically in 20-millisecond windows) by a neural network vocoder. Because each frame is calculated independently, **sudden phase jumps or discontinuities** occur at frame boundaries. The human ear can't hear these tiny "waterfalls," but computers can measure them precisely.
-
----
-
-## 📂 Standard Folder Structure
-For PhaseGuard to function correctly, maintain the following directory layout:
+## 📂 Project Structure
 
 ```text
 E:/UCO-HACKATHON/
-│
-├── data/
-│   ├── real_voices/             # Enrolled genuine customer recordings (16kHz WAV mono)
-│   │   ├── vishal/              # vishal_001.wav, vishal_002.wav...
-│   │   ├── abhinav/             # abhinav_001.wav, abhinav_002.wav...
-│   │   ├── aditya/              # aditya_001.wav, aditya_002.wav...
-│   │   └── dhruv/               # dhruv_001.wav, dhruv_002.wav...
-│   │
+├── app/                         # Layer 2 FastAPI Backend
+│   ├── api/v1/endpoints/        # API route handlers (enroll, verify, users, history)
+│   ├── core/                    # App configuration (Pydantic settings) and logging
+│   ├── database/                # Database engine, session, and async dependencies
+│   ├── models/                  # SQLAlchemy models (users, voiceprints, logs)
+│   ├── repositories/            # Database abstraction layer
+│   ├── services/                # Business logic orchestration
+│   ├── ml/                      # SpeechBrain ECAPA-TDNN inference wrapper
+│   ├── utils/                   # Audio I/O and exception handlers
+│   └── main.py                  # FastAPI server entry point
+├── streamlit_app/               # Layer 2 Streamlit Web Frontend
+│   ├── app.py                   # Multi-page dashboard entry
+│   ├── api_client.py            # API request layer
+│   ├── config.py                # Frontend thresholds and endpoints
+│   └── pages/                   # Enrollment, Verification, History, Risk dashboards
+├── data/                        # Audio Datasets
+│   ├── real_voices/             # Genuine speaker recordings (16kHz WAV mono)
 │   ├── clones/                  # Deepfaked voice clone clips (16kHz WAV mono)
-│   │   ├── vishal/              # vishal_clone_001.wav...
-│   │   ├── abhinav/             # abhinav_clone_001.wav...
-│   │   ├── aditya/              # aditya_clone_001.wav...
-│   │   └── dhruv/               # dhruv_clone_001.wav...
-│   │
-│   └── processed/               # Standardized training datasets (generated by pipeline)
-│       ├── spectrograms.npy     # Compiled 128x128 mel-spectrogram arrays
-│       ├── features.npy         # Compiled 5-signal physical features
-│       └── labels.npy           # Labels (0 = Real, 1 = Fake)
-│
-├── models/                      # Saved weights and template databases
+│   ├── sources/                 # External datasets (LJSpeech, Common Voice, Svarah)
+│   └── processed/               # Compiled datasets and train/test splits (.npy matrices)
+├── models/                      # Saved PyTorch Weights & Local Templates
 │   ├── layer1_mobilenet.pth     # Trained MobileNetV3 CNN weights
-│   └── voiceprints.pth          # Enrolled ECAPA-TDNN speaker templates
-│
-├── pretrained_models/           # Cached SpeechBrain models (downloaded automatically)
-│   └── ecapa/
-│
-├── requirements.txt             # Python dependency packages list
-├── generate_simulated_data.py   # Synthesizes mock audio clips for Vishal, Abhinav, etc.
-├── preprocess.py                # Audio normalizer and 5-signal physics feature extractor
-├── build_dataset.py             # Preprocesses raw wav files and saves .npy matrices
+│   └── voiceprints.pth          # Backup of enrolled ECAPA-TDNN speaker templates
+├── pretrained_models/           # Cached SpeechBrain ECAPA models (downloaded automatically)
+├── alembic/                     # Database migrations
+├── tests/                       # Pytest unit and integration test suite
+├── Dockerfile                   # FastAPI backend image
+├── Dockerfile.streamlit         # Streamlit frontend image
+├── docker-compose.yml           # Database + API + Streamlit deployment configuration
+├── requirements.txt             # Python environment dependencies
+├── generate_simulated_data.py   # Synthesizes mock audio clips for testing
+├── preprocess.py                # Audio normalizer and 5-signal physical feature extractor
+├── build_dataset.py             # Compiles raw WAV files into unified numpy datasets
+├── process_phase1.py            # Processes and splits multi-source, speaker-aware data
 ├── train_layer1.py              # PyTorch script training the MobileNetV3 CNN model
-├── enroll_voices.py             # SpeechBrain script building speaker embeddings
-├── dashboard.py                 # Premium Streamlit web front-end and charts
-├── run_app.py                   # Environment-aware app launcher
-└── README.md                    # System architecture and user documentation
->>>>>>> f910cc20bed285d385b74db0145c6f1ca13d6633
+├── enroll_voices.py             # SpeechBrain script building local voiceprints
+├── dashboard.py                 # Integrated local Streamlit dashboard
+├── run_app.py                   # Launcher script for the local dashboard
+├── SETUP.md                     # Rapid teammate setup guide
+└── README.md                    # Core project documentation
 ```
 
 ---
 
-<<<<<<< HEAD
-## Quick Start (Hackathon Setup — Shared Cloud Database, No Docker)
+## 🛠️ Step-by-Step Environment Setup
 
-For the hackathon, we run the backend and frontend locally on each
-teammate's laptop, but all connect to **one shared Neon PostgreSQL
-database** (with pgvector enabled) instead of each laptop running its own
-local PostgreSQL. This avoids per-laptop database installation issues
-(pgvector compilation, `pg_config` PATH errors) and Docker disk-space
-issues entirely, while still giving everyone the same enrolled voiceprints
-and verification history.
+Teammates can reproduce the exact working environment using a clean python virtual environment or Anaconda.
 
-See **[SETUP.md](./SETUP.md)** for the fast, copy-paste version of these
-steps.
-
-### 1. One-time: set up the shared database (only one teammate does this)
-
-1. Create a free project at **neon.tech**
-2. In Neon's SQL editor, run: `CREATE EXTENSION IF NOT EXISTS vector;`
-3. Copy the connection string Neon gives you and share it with the team
-   privately (do not commit it to GitHub)
-
-### 2. Every teammate: clone and install
+### Local Python Virtual Environment Setup
 
 ```bash
-git clone <repo-url>
-cd phaseguard
-conda create -n phaseguard python=3.10
-conda activate phaseguard
-pip install -r requirements.txt
-copy .env.example .env
-```
-
-Edit `.env`, replacing the placeholder `DATABASE_URL` / `DATABASE_URL_SYNC`
-values with the real Neon connection string shared by the team.
-
-### 3. Run migrations (only needed once, by whoever sets up first)
-
-```bash
-alembic upgrade head
-```
-
-### 4. Start the backend
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 5. Start the frontend (new terminal)
-
-```bash
-cd streamlit_app
-streamlit run app.py
-```
-
-Open **http://localhost:8501**.
-
----
-
-## Docker (optional, for later/production — not used during the hackathon)
-
-The project still includes a full Docker setup (`Dockerfile`,
-`Dockerfile.streamlit`, `docker-compose.yml`) for when you want a fully
-containerized deployment later. It is **not required** for local
-development or the hackathon demo, and avoids the disk-space and
-`pg_config` build issues some Windows laptops hit with a from-scratch local
-PostgreSQL install.
-
-```bash
-docker-compose up --build
-```
-
-
-
-## Local Development (without Docker)
-
-### Prerequisites
-
-- Python 3.10+
-- PostgreSQL 16 with pgvector extension installed
-- `libsndfile` system library (for soundfile / audio loading)
-
-```bash
-# macOS
-brew install libsndfile ffmpeg
-
-# Ubuntu/Debian
-sudo apt-get install libsndfile1 ffmpeg
-```
-
-### Setup
-
-```bash
+# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
+source .venv/bin/activate      # On Windows: .venv\Scripts\activate
+
+# Install core dependencies
 pip install -r requirements.txt
-cp .env.example .env
-# Edit DATABASE_URL / DATABASE_URL_SYNC to point to your local Postgres
 ```
 
-### Run migrations
+### Anaconda Conda Setup (Alternative)
 
 ```bash
-alembic upgrade head
-```
+# Create dedicated virtual environment with Python 3.10
+conda create -n phaseguard python=3.10 -y
+conda activate phaseguard
 
-### Start the API
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### Start Streamlit
-
-```bash
-cd streamlit_app
-streamlit run app.py
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ---
 
-## API Reference
+## 🚀 Execution Pipelines
 
-### `POST /api/v1/users`
-Create a new enrollable user.
-```json
-{ "name": "Vishal Kumar", "email": "vishal@example.com" }
-```
+You can run PhaseGuard in two modes: **Local Integrated Mode** (quick training & local evaluation) or **Database-Backed Production Mode** (FastAPI backend + PostgreSQL + Multi-page Web UI).
 
-### `POST /api/v1/enroll`
-Enroll a user's voiceprint from multiple recordings.
-- Form fields: `user_id` (UUID), `files` (multipart, 1+ WAV/FLAC/MP3)
-- Minimum recordings: configurable via `MIN_ENROLLMENT_RECORDINGS` (default 3; use 30-50 for production)
+### Option A: Local Integrated Mode (Notebooks & Dashboard)
 
-### `POST /api/v1/verify`
-Verify a live audio sample against an enrolled voiceprint.
-- Form fields: `user_id` (UUID), `file` (single audio), `layer1_score` (float, default 0.0)
-- Returns: similarity score, identity decision, risk level
+Run these scripts in order to train the Layer 1 CNN, enroll voiceprints locally, and start the integrated dashboard:
 
-### `GET /api/v1/users/{user_id}`
-Fetch a user and their enrollment status.
+1.  **Generate Synthetic Voice Files** (Synthesizes 200 real and 200 clone WAV files):
+    ```bash
+    python generate_simulated_data.py
+    ```
+2.  **Process and Build the Dataset** (Extracts features, spectrograms, and applies splits):
+    ```bash
+    python build_dataset.py
+    ```
+    *Or run `process_phase1.py` for multi-source, speaker-aware splits.*
+3.  **Train the Layer 1 Model**:
+    ```bash
+    python train_layer1.py
+    ```
+4.  **Enroll Speaker Voiceprints**:
+    ```bash
+    python enroll_voices.py
+    ```
+5.  **Launch the Integrated Local Dashboard**:
+    ```bash
+    python run_app.py
+    ```
+    *This runs the local `dashboard.py` frontend on `http://localhost:8501`.*
 
-### `GET /api/v1/verification-history/{user_id}`
-Paginated verification attempt history.
+### Option B: Database-Backed Production Mode (FastAPI + Streamlit + Postgres)
 
-### `GET /api/v1/risk-history/{user_id}`
-Paginated risk evaluation history.
+1.  **Configure Environment Variables**:
+    ```bash
+    copy .env.example .env
+    ```
+    Edit `.env` to supply the database URL connecting to your Postgres / Neon instance.
+2.  **Run Database Migrations**:
+    ```bash
+    alembic upgrade head
+    ```
+3.  **Start the Backend API**:
+    ```bash
+    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ```
+4.  **Start the Production Web App** (Open a new terminal):
+    ```bash
+    cd streamlit_app
+    streamlit run app.py
+    ```
+    *This opens the multi-page portal on `http://localhost:8501`.*
 
 ---
 
-## Running Tests
+## 📡 The 5 Physical Security Signals (Explained)
 
+Judges or users interested in how PhaseGuard catches synthetic/cloned speech can refer to these acoustic parameters:
+
+1.  **Phase Jump Rate**: Counts frame-to-frame phase differences exceeding $\pi / 2$ radians. Human voice waves flow smoothly; frame-based AI vocoders exhibit sudden jumps at 20ms boundary transitions.
+2.  **Pitch Jitter**: Measures consecutive fundamental frequency ($f_0$) pitch variations. Real human voices wobble organically due to muscle tremors; AI voices either lack jitter entirely (static flat pitch) or display rigid mathematical tremor patterns.
+3.  **Spectral Flatness**: High flatness means white noise; low flatness means rich harmonics (speech formants). AI vocoders tend to blur formant details, yielding abnormally smooth spectral distributions.
+4.  **Noise Floor (RMS)**: Phone calls always have electrical/ambient noise. AI audio files are synthesized in near-perfect digital silence. We measure the energy (RMS) of the quietest 10% of frames to spot this dead digital background.
+5.  **MFCC Delta Variance**: Mel-Frequency Cepstral Coefficients represent vocal tract textures. Deltas represent the speed of vocal change. AI voices exhibit abnormally rigid transitions.
+
+---
+
+## 🧪 Running Tests
+
+Ensure your changes do not break existing functionality by running the test suite:
 ```bash
 pytest tests/ -v
 ```
 
-**45 tests, 0 failures.** Tests cover:
-- Risk engine decision rules (all branches, boundary conditions)
-- ECAPA cosine similarity math (6 properties)
-- Enrollment averaging and skip-on-failure logic
-- Audio utility I/O and extension validation
-- Enrollment and verification service orchestration (mocked DB + ML)
+All 45 tests should pass successfully.
 
 ---
 
-## Database Schema
+## 📊 Database Schema
+
+For PostgreSQL with the `pgvector` extension enabled, the database schema is structured as follows:
 
 ```sql
--- Requires: CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE users (
     id          UUID PRIMARY KEY,
@@ -364,137 +235,3 @@ CREATE TABLE risk_logs (
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 ```
-
----
-
-## Key Design Decisions
-
-**Why pgvector instead of .pth files?**
-Voiceprints stored in PostgreSQL are persistent across restarts, queryable by SQL, easily backed up, and support pgvector's native cosine similarity operators for future similarity search.
-
-**Why a singleton ECAPA service?**
-The SpeechBrain model is ~100MB and takes several seconds to load. The module-level `get_ecapa_service()` singleton ensures it is loaded only once per process (at startup via `lifespan`), not on every request.
-
-**Why repository/service separation?**
-Endpoints call services; services call repositories; repositories call SQLAlchemy. Each layer can be tested in isolation — service tests mock repositories, unit tests mock everything below them.
-
----
-
-## Next Steps (Layers 1 & 3)
-
-- **Layer 1 (AI Voice Detection):** Train MobileNetV3 on ASVspoof 2024 + WaveFake mel-spectrograms; expose as `POST /api/v1/detect-ai`. Pass the returned `layer1_score` to `POST /api/v1/verify`.
-- **Layer 3 (Deepfake Detection):** Add a third model (e.g. RawNet3) for waveform-level artifact detection.
-- **Risk Engine expansion:** Update `risk_engine.py` to accept `layer3_score` and extend the decision rules.
-=======
-## 🛠️ Step-by-Step Environment Setup
-Teammates can reproduce the exact working environment on Windows using Anaconda and Command Prompt.
-
-### Step 1: Initialize the Conda Environment
-Open **Anaconda Prompt** and execute:
-```bash
-# Create a dedicated virtual environment with Python 3.10
-conda create -n phaseguard python=3.10 -y
-
-# Activate the environment
-conda activate phaseguard
-```
-
-### Step 2: Install Libraries
-With the `phaseguard` environment active, install the dependencies listed in `requirements.txt`:
-```bash
-# Install PyTorch and Audio tools
-pip install torch torchaudio torchvision
-
-# Install audio processing utilities
-pip install librosa soundfile numpy==1.23.5 scipy
-
-# Install SpeechBrain (Speaker Verification)
-pip install speechbrain
-
-# Install HuggingFace Transformers (required by SpeechBrain)
-pip install transformers
-
-# Install Streamlit and Plotly (Dashboard)
-pip install streamlit plotly
-
-# Install recording libraries
-pip install sounddevice pyaudio
-```
-*(Alternatively, run: `pip install -r requirements.txt`)*
-
----
-
-## 📓 Working with Anaconda Jupyter Notebooks
-If you are developing or testing **Layer 1 (Authenticity Check / Model Training)** inside Jupyter, follow this setup:
-
-### 1. Register the Conda Environment in Jupyter
-To make your custom environment visible inside Jupyter Notebook as a selectable kernel, run:
-```bash
-# Activate your environment
-conda activate phaseguard
-
-# Install ipykernel (Jupyter connector)
-pip install ipykernel
-
-# Register the kernel
-python -m ipykernel install --user --name=phaseguard --display-name "Python (PhaseGuard)"
-```
-
-### 2. Launch Jupyter Notebook
-Launch the notebook server:
-```bash
-jupyter notebook
-```
-
-### 3. Select the Correct Kernel
-* Create a new notebook or open `Layer1_Training.ipynb`.
-* In the top-right corner, click **Kernel** -> **Change Kernel** -> Select **Python (PhaseGuard)**.
-* You can now run PyTorch, Librosa, and train models directly from the notebook cells!
-
----
-
-## 📡 The 5 Physical Security Signals (Explained)
-Judges often ask how the detection parameters work. Here is the mathematical logic:
-
-1. **Phase Jump Rate**: Counts frame-to-frame phase differences exceeding $\pi / 2$ radians. Human voice waves flow smoothly; frame-based AI vocoders exhibit sudden jumps at 20ms boundary transitions.
-2. **Pitch Jitter**: Measures consecutive fundamental frequency ($f_0$) pitch variations. Real human voices wobble organically due to muscle tremors; AI voices either lack jitter entirely (static flat pitch) or display rigid mathematical tremor patterns.
-3. **Spectral Flatness**: High flatness means white noise; low flatness means rich harmonics (speech formants). AI vocoders tend to blur formant details, yielding abnormally smooth spectral distributions.
-4. **Noise Floor (RMS)**: Phone calls always have electrical/ambient noise. AI audio files are synthesized in near-perfect digital silence. We measure the energy (RMS) of the quietest 10% of frames to spot this dead digital background.
-5. **MFCC Delta Variance**: Mel-Frequency Cepstral Coefficients represent vocal tract textures. Deltas represent the speed of vocal change. AI voices exhibit abnormally rigid transitions.
-
----
-
-## 🚀 Execution & Verification Pipeline
-Run these scripts in order to train the network and launch the system:
-
-### 1. Generate Synthetic Voice Files
-Synthesizes 200 real and 200 clone WAV files:
-```bash
-python generate_simulated_data.py
-```
-
-### 2. Process and Build the Dataset
-Extracts signals and mel-spectrograms:
-```bash
-python build_dataset.py
-```
-
-### 3. Train Layer 1 Model
-Trains the MobileNetV3 CNN model:
-```bash
-python train_layer1.py
-```
-
-### 4. Enroll Speaker Voiceprints
-Loads the SpeechBrain ECAPA model, averages embeddings, and saves them:
-```bash
-python enroll_voices.py
-```
-
-### 5. Launch Dashboard
-Run the Streamlit frontend:
-```bash
-python run_app.py
-```
-This opens the Web UI in your browser at `http://localhost:8501`.
->>>>>>> f910cc20bed285d385b74db0145c6f1ca13d6633
