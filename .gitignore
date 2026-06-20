@@ -1,3 +1,32 @@
+<<<<<<< HEAD
+# Environment
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# ML model downloads (large, re-downloaded automatically)
+pretrained_models/
+
+# Logs and temp files
+logs/
+data/temp_uploads/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+=======
 # Python temporary files
 __pycache__/
 *.py[cod]
@@ -21,3 +50,4 @@ models/voiceprints.pth
 *.wav
 *.mp3
 *.flac
+>>>>>>> f910cc20bed285d385b74db0145c6f1ca13d6633
