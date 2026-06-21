@@ -35,7 +35,6 @@ def build_manifest():
                     rows.append([os.path.join(folder, f), 0, member, "team_real"])
     
     # ---- Team clones: each member's clone = same speaker_id as their real voice ----
-    # (so train/test split keeps a person's real+fake together, avoiding leakage)
     for member in ["vishal", "abhinav", "aditya", "dhruv"]:
         folder = f"data/clones/{member}"
         if os.path.exists(folder):
@@ -43,52 +42,42 @@ def build_manifest():
                 if f.lower().endswith('.wav'):
                     rows.append([os.path.join(folder, f), 1, member, "team_clone"])
     
-    # ---- LJSpeech (1 speaker, capped to 200 files) ----
-    folder = "data/sources/ljspeech/wavs"
-    if os.path.exists(folder):
-        files = [f for f in os.listdir(folder) if f.lower().endswith('.wav')]
-        random.shuffle(files)
-        for f in files[:200]:
-            rows.append([os.path.join(folder, f), 0, "ljspeech_linda", "ljspeech"])
+    # ---- Walk data/sources/real (Label = 0) ----
+    real_sources_dir = "data/sources/real"
+    if os.path.exists(real_sources_dir):
+        for root, dirs, files in os.walk(real_sources_dir):
+            for f in files:
+                if f.lower().endswith('.wav'):
+                    filepath = os.path.join(root, f)
+                    if f.startswith("cv_"):
+                        parts = f.split('_')
+                        speaker_id = parts[1] if len(parts) > 1 else f.split('.')[0]
+                        source = "common_voice"
+                    elif f.startswith("svarah_"):
+                        parts = f.split('_')
+                        speaker_id = parts[1] if len(parts) > 1 else f.split('.')[0]
+                        source = "svarah"
+                    else:
+                        speaker_id = "ljspeech_linda"
+                        source = "ljspeech"
+                    rows.append([filepath, 0, f"cv_{speaker_id}" if source == "common_voice" else f"svarah_{speaker_id}" if source == "svarah" else speaker_id, source])
     
-    # ---- WaveFake generated fakes (cap to 500, all treated as speaker "ljspeech_linda" too,
-    #      since they're vocoder versions of the same voice) ----
-    folder = "data/sources/wavefake_fake"
-    if os.path.exists(folder):
-        files = [f for f in os.listdir(folder) if f.lower().endswith('.wav')]
-        random.shuffle(files)
-        for f in files[:500]:
-            rows.append([os.path.join(folder, f), 1, "ljspeech_linda", "wavefake"])
-    
-    # ---- Common Voice Hindi (many speakers — use first part of filename as speaker proxy) ----
-    folder = "data/sources/common_voice_hindi"
-    if os.path.exists(folder):
-        files = [f for f in os.listdir(folder) if f.lower().endswith('.wav')]
-        random.shuffle(files)
-        for f in files[:800]:
-            # common_voice filenames usually have format: common_voice_hi_XXXXXX.wav or similar.
-            # Split by underscores or take first part
-            parts = f.split('_')
-            speaker_id = parts[-1].split('.')[0] if len(parts) > 1 else f.split('.')[0]
-            rows.append([os.path.join(folder, f), 0, f"cv_{speaker_id}", "common_voice"])
-    
-    # ---- Svarah (Indian English, many speakers) ----
-    folder = "data/sources/svarah"
-    if os.path.exists(folder):
-        files = [f for f in os.listdir(folder) if f.lower().endswith('.wav')]
-        random.shuffle(files)
-        for f in files[:500]:
-            speaker_id = f.split('_')[0]
-            rows.append([os.path.join(folder, f), 0, f"svarah_{speaker_id}", "svarah"])
-    
-    # ---- ASVspoof fakes (many speakers from VCTK) ----
-    folder = "data/sources/asvspoof_fake"
-    if os.path.exists(folder):
-        files = [f for f in os.listdir(folder) if f.lower().endswith('.wav')]
-        random.shuffle(files)
-        for f in files[:800]:
-            speaker_id = f.split('_')[0]
-            rows.append([os.path.join(folder, f), 1, f"asv_{speaker_id}", "asvspoof"])
+    # ---- Walk data/sources/fake (Label = 1) ----
+    fake_sources_dir = "data/sources/fake"
+    if os.path.exists(fake_sources_dir):
+        for root, dirs, files in os.walk(fake_sources_dir):
+            for f in files:
+                if f.lower().endswith('.wav'):
+                    filepath = os.path.join(root, f)
+                    if f.startswith("wf_"):
+                        parts = f.split('_')
+                        vocoder = parts[1] if len(parts) > 1 else "vocoder"
+                        speaker_id = f"wavefake_{vocoder}"
+                        source = f"wavefake_{vocoder}"
+                    else:
+                        speaker_id = "wavefake_linda"
+                        source = "wavefake"
+                    rows.append([filepath, 1, speaker_id, source])
     
     # Save manifest as CSV
     os.makedirs("data/processed", exist_ok=True)
