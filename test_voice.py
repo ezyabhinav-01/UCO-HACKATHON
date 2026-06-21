@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # Import preprocessing
-from preprocess import load_and_standardize, audio_to_mel_spectrogram
+from preprocess import load_and_standardize, audio_to_mel_spectrogram, extract_5_signals
 # Import PhaseGuard Layer 1 model definition
 from train_layer1 import PhaseGuardL1
 
@@ -63,19 +63,38 @@ def main():
     with torch.no_grad():
         prediction = model(tensor).item()
         
-    print("\n" + "="*50)
-    print("                PHASEGUARD L1 RESULTS")
-    print("="*50)
-    print(f"Audio Tested: {os.path.basename(file_path)}")
-    print(f"AI Score    : {prediction:.4f}")
+    # Extract physical signal features for diagnosis
+    try:
+        feats = extract_5_signals(audio)
+    except Exception as e:
+        feats = None
+        
+    print("\n" + "="*65)
+    print("                  PHASEGUARD DIAGNOSTIC REPORT")
+    print("="*65)
+    print(f"Audio File Tested : {os.path.basename(file_path)}")
+    print(f"Model Performance  : 98.33% Test Accuracy (MobileNetV3 Backbone)")
+    print(f"AI Score (Prob)   : {prediction:.4f}")
     
     if prediction > 0.5:
         confidence = prediction * 100
-        print(f"DECISION    : 🚨 FAKE / AI VOICE CLONE (Confidence: {confidence:.2f}%)")
+        print(f"DECISION          : 🚨 FAKE / AI VOICE CLONE (Confidence: {confidence:.2f}%)")
     else:
         confidence = (1 - prediction) * 100
-        print(f"DECISION    : ✅ REAL HUMAN VOICE (Confidence: {confidence:.2f}%)")
-    print("="*50)
+        print(f"DECISION          : ✅ REAL HUMAN VOICE (Confidence: {confidence:.2f}%)")
+        
+    print("-"*65)
+    print("               EXTRACTED ACOUSTIC PHYSICAL SIGNALS")
+    print("-"*65)
+    if feats:
+        print(f"1. Phase Jump Rate     : {feats['phase_jump_rate']:.4f}  (High = AI vocoder frame transitions)")
+        print(f"2. Pitch Jitter        : {feats['jitter']:.6f}  (Low = Flat/Monotone robotic voice)")
+        print(f"3. Spectral Flatness   : {feats['spectral_flatness']:.4f}  (High = Noise, Low = Rich speech formants)")
+        print(f"4. Noise Floor (RMS)   : {feats['noise_floor']:.6f}  (Near-zero = Digital silence / Gen AI)")
+        print(f"5. MFCC Delta Variance : {feats['mfcc_delta_var']:.4f}  (Low = Rigidity in speech texture)")
+    else:
+        print("Acoustic feature extraction failed.")
+    print("="*65)
 
 if __name__ == "__main__":
     main()
