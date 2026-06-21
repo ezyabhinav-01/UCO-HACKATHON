@@ -3,7 +3,7 @@ torchaudio
 torchvision
 librosa
 soundfile
-numpy==1.23.5
+numpy>=1.24
 scipy
 speechbrain
 streamlit
