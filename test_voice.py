@@ -78,10 +78,10 @@ def main():
     
     if prediction > 0.5:
         confidence = prediction * 100
-        print(f"DECISION          : 🚨 FAKE / AI VOICE CLONE (Confidence: {confidence:.2f}%)")
+        print(f"DECISION          : [ALERT] FAKE / AI VOICE CLONE (Confidence: {confidence:.2f}%)")
     else:
         confidence = (1 - prediction) * 100
-        print(f"DECISION          : ✅ REAL HUMAN VOICE (Confidence: {confidence:.2f}%)")
+        print(f"DECISION          : [OK] REAL HUMAN VOICE (Confidence: {confidence:.2f}%)")
         
     print("-"*65)
     print("               EXTRACTED ACOUSTIC PHYSICAL SIGNALS")
